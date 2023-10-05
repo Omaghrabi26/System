@@ -83,7 +83,7 @@ reg         [3:0]    c_state,
                      n_state ;
 
 
-reg [ADDR_width-1:0]   RF_ADDr_R;
+reg [DATA_WIDTH-1:0]   RF_ADDr_R;
 reg [DATA_WIDTH-1:0] FiFO_DATA_temp;
 //reg [DATA_WIDTH-1:0] FiFO_DATA_temp2;
 
@@ -212,7 +212,7 @@ always@(*)
 
 
 
-
+reg                    RF_ADDR_SAVE   ;
 
 
 
@@ -230,6 +230,7 @@ ALU_FUN=0;
 ALU_EN=0;
 CLK_DIV_EN=1'b1;
 G_CLK_EN=1'b0;
+ RF_ADDR_SAVE=0;
   case(c_state)
    IDLE: begin
           RF_Wr_D='b0     ;
@@ -241,18 +242,27 @@ G_CLK_EN=1'b0;
           ALU_FUN=0;
           ALU_EN=0;
           G_CLK_EN=1'b0;
-          RF_ADDr_R=0;
+          //RF_ADDr_R=0;
           FiFO_DATA_temp=0;
          end
       /////////////////write////////////////
    WRITE_ADDR:
          begin
+          //RF_ADDr_R=0;
           FiFO_DATA_temp=0;
-          if(RX_VALID_SYN)
+          /*if()
            RF_ADDr_R = RX_OUT_SYN; 
-          else 
-            RF_ADDr_R =0;  
-
+          else
+           RF_ADDr_R =0;*/
+           if(RX_VALID_SYN)
+                   begin
+                    RF_ADDR_SAVE = 1'b1 ;               
+                   end
+                 else
+                   begin
+                    RF_ADDR_SAVE = 1'b0 ;           
+                   end                        
+                
          end
 
    WRITE_DATA:
@@ -261,7 +271,7 @@ G_CLK_EN=1'b0;
           FiFO_DATA_temp=0; 
           if(RX_VALID_SYN)
           begin
-           RF_ADDr=RF_ADDr_R;
+           RF_ADDr=RF_ADDr_R[ADDR_width-1:0];
            RF_WrEn=1'b1;
            RF_Wr_D= RX_OUT_SYN;
           end
@@ -271,17 +281,21 @@ G_CLK_EN=1'b0;
            RF_WrEn= 1'b0;
            RF_Wr_D= 0   ;
           end
-          RF_ADDr_R=0;
+          //RF_ADDr_R=0;
          end
       ///////////read/////////////////
    READ_ADDR:
          begin
-          FiFO_DATA_temp=0;
-            if(RX_VALID_SYN)
-             RF_ADDr_R = RX_OUT_SYN; 
+         FiFO_DATA_temp=0;
+         	if(RX_VALID_SYN)
+            begin
+             RF_RdEn=1'b1;
+             RF_ADDr = RX_OUT_SYN; 
+             end
             else 
             begin
-             RF_ADDr_R=0;	
+             RF_RdEn=1'b0;
+             //RF_ADDr_R=0;	
             end
          end
    
@@ -291,17 +305,17 @@ G_CLK_EN=1'b0;
           RF_RdEn=1'b1;
           RF_ADDr=RF_ADDr_R;
           
-          if(RF_Rd_D_Vld)
+          if(RF_Rd_D_Vld&&!FIFO_FULL)
            begin
            FIFO_WR_DATA=RF_Rd_D;
            FIFO_WR_INC=1'b1;
            end
           else 
           begin
-            FiFO_DATA_temp=0;
+            FIFO_WR_INC=1'b1;
           end
 
-          RF_ADDr_R=0;
+         // RF_ADDr_R=0;
           FiFO_DATA_temp=0;
          end
     
@@ -321,7 +335,7 @@ G_CLK_EN=1'b0;
              RF_ADDr = 0;
              RF_WrEn = 0;
             end
-            RF_ADDr_R=0;
+            //RF_ADDr_R=0;
             FiFO_DATA_temp=0;
           end
     ALU_OPB:
@@ -339,7 +353,7 @@ G_CLK_EN=1'b0;
              RF_ADDr = 0;
              RF_WrEn = 0;
             end
-            RF_ADDr_R=0;
+           // RF_ADDr_R=0;
             FiFO_DATA_temp=0;
           end
 
@@ -356,12 +370,12 @@ G_CLK_EN=1'b0;
             ALU_FUN=0;
             ALU_EN =0;
             end
-           RF_ADDr_R=0;
+           //RF_ADDr_R=0;
            FiFO_DATA_temp=0;
           end
     ALU_FUN_S_VLD_FIFO:
           begin
-           RF_ADDr_R=0;
+           //RF_ADDr_R=0;
            G_CLK_EN = 1'b1;
            if(ALU_OUT_Valid)
            begin
@@ -378,7 +392,7 @@ G_CLK_EN=1'b0;
     	begin
     	 FIFO_WR_DATA=FiFO_DATA_temp;
     	 FIFO_WR_INC=1'b1;
-         RF_ADDr_R=0;
+         //RF_ADDr_R=0;
          FiFO_DATA_temp=0;
     	end
     /*	
@@ -400,10 +414,27 @@ G_CLK_EN=1'b0;
           ALU_EN=0;
           CLK_DIV_EN=1'b1;
           G_CLK_EN=1'b0;
-          RF_ADDr_R=0;
+         // RF_ADDr_R=0;
           FiFO_DATA_temp=0;
  		  end
   endcase
+ end
+
+
+
+ always @ (posedge CLK or negedge RST)
+ begin
+  if(!RST)
+   begin
+    RF_ADDr_R <= 0 ;
+   end
+  else
+   begin
+    if (RF_ADDR_SAVE)
+     begin  
+      RF_ADDr_R <= RX_OUT_SYN ;
+     end 
+   end
  end
 
 endmodule 
